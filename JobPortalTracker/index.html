@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>ApplyFlow — Job Tracker</title>
+  <!-- PWA: installable on phone home screen + offline support -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ApplyFlow" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===== Top nav ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">⚡</span>
+      <div>
+        <h1>ApplyFlow</h1>
+        <p>Your daily job application co-pilot</p>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-btn active" data-view="dashboard"><span>📊</span> Dashboard</button>
+      <button class="nav-btn" data-view="insights"><span>📈</span> Insights</button>
+      <button class="nav-btn" data-view="resume"><span>🎯</span> Resume Match</button>
+      <button class="nav-btn bell" data-view="alerts">
+        <span>🔔</span> Alerts
+        <span class="badge" id="alertBadge" hidden>0</span>
+      </button>
+    </nav>
+    <div class="top-actions">
+      <button class="icon-btn round" id="themeBtn" title="Toggle theme">🌙</button>
+      <button class="icon-btn round" id="settingsBtn" title="Settings">⚙️</button>
+    </div>
+  </header>
+
+  <!-- ===== Expiry notification banner ===== -->
+  <div class="alert-banner" id="alertBanner" hidden>
+    <span class="ab-icon">⏰</span>
+    <span class="ab-text" id="alertBannerText"></span>
+    <button class="ab-go" id="alertBannerGo">Review</button>
+    <button class="ab-close" id="alertBannerClose">✕</button>
+  </div>
+
+  <main class="container">
+
+    <!-- =================== DASHBOARD VIEW =================== -->
+    <section class="view" id="view-dashboard">
+      <div class="stat-grid" id="statGrid"></div>
+
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span>🔎</span>
+          <input type="text" id="searchInput" placeholder="Search role, company, notes…" />
+        </div>
+        <select id="statusFilter" class="select">
+          <option value="all">All statuses</option>
+          <option value="not-applied">Not applied</option>
+          <option value="applied">Applied</option>
+          <option value="mailed-referral">Mailed for referral</option>
+          <option value="got-referral">Got referral</option>
+        </select>
+        <div class="view-toggle">
+          <button class="vt-btn active" data-layout="table" title="Table view">▤ Table</button>
+          <button class="vt-btn" data-layout="board" title="Board view">▥ Board</button>
+          <button class="vt-btn" data-layout="cards" title="Card view">▦ Cards</button>
+        </div>
+        <div class="data-menu">
+          <button class="btn ghost" id="dataBtn">⤓ Data</button>
+          <div class="data-dropdown" id="dataDropdown" hidden>
+            <button data-act="export-json">⬇ Export JSON (backup)</button>
+            <button data-act="export-csv">⬇ Export CSV (Excel)</button>
+            <button data-act="import">⬆ Import JSON</button>
+            <button data-act="clear" class="danger">🗑 Clear all data</button>
+          </div>
+        </div>
+        <button class="btn primary" id="addJobBtn">＋ Add job</button>
+      </div>
+
+      <!-- TABLE layout -->
+      <div class="table-wrap" id="tableWrap">
+        <table class="job-table">
+          <thead>
+            <tr id="tableHead">
+              <th data-sort="idx" class="num">#</th>
+              <th data-sort="role">Role ⬍</th>
+              <th data-sort="company">Company ⬍</th>
+              <th data-sort="status">Status ⬍</th>
+              <th data-sort="link">Link</th>
+              <th data-sort="mailed" class="num">Mailed ⬍</th>
+              <th data-sort="referral">Referral</th>
+              <th data-sort="posted">Posted ⬍</th>
+              <th data-sort="expiry">Expiry ⬍</th>
+              <th data-sort="interview">Interview ⬍</th>
+              <th>Notes</th>
+              <th class="num">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- BOARD (Kanban) layout -->
+      <div class="kanban" id="kanban" hidden></div>
+
+      <!-- CARDS layout -->
+      <div class="jobs" id="jobList" hidden></div>
+
+      <div class="empty" id="emptyState" hidden>
+        <div class="empty-emoji">📭</div>
+        <h3>No jobs match</h3>
+        <p>Add a job or adjust your filters to get started.</p>
+        <button class="btn primary" id="emptyAddBtn">＋ Add your first job</button>
+      </div>
+    </section>
+
+    <!-- =================== INSIGHTS VIEW =================== -->
+    <section class="view" id="view-insights" hidden>
+      <div class="stat-grid" id="insightStats"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Consistency</h2>
+          <p>Each square is a day. Greener = more applications.</p>
+        </div>
+        <div class="heatmap-wrap">
+          <div class="heatmap" id="heatmap"></div>
+        </div>
+        <div class="heat-legend">
+          <span>Less</span>
+          <i class="lvl lvl0"></i><i class="lvl lvl1"></i><i class="lvl lvl2"></i><i class="lvl lvl3"></i><i class="lvl lvl4"></i>
+          <span>More</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><h2>Last 8 weeks</h2><p>Jobs actioned each week.</p></div>
+          <div class="bars" id="weeklyBars"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Status breakdown</h2></div>
+          <div class="breakdown" id="breakdown"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== RESUME MATCH VIEW =================== -->
+    <section class="view" id="view-resume" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2>Resume ↔ Job match</h2>
+          <p>Paste or upload (PDF / TXT) your résumé and the job description to estimate your shortlist chances.</p>
+        </div>
+        <div class="match-grid">
+          <div class="field">
+            <label>Your résumé</label>
+            <textarea id="resumeText" placeholder="Paste your résumé text here…"></textarea>
+            <label class="file-btn">📎 Upload PDF / TXT
+              <input type="file" id="resumeFile" accept=".txt,.md,.text,.pdf" hidden />
+            </label>
+          </div>
+          <div class="field">
+            <label>Job description</label>
+            <textarea id="jdText" placeholder="Paste the job description here…"></textarea>
+            <label class="file-btn">📎 Upload PDF / TXT
+              <input type="file" id="jdFile" accept=".txt,.md,.text,.pdf" hidden />
+            </label>
+          </div>
+        </div>
+        <button class="btn primary wide" id="analyzeBtn">Analyze match</button>
+      </div>
+
+      <div class="card" id="matchResult" hidden>
+        <div class="score-wrap">
+          <div class="gauge" id="gauge">
+            <svg viewBox="0 0 120 120">
+              <circle class="g-bg" cx="60" cy="60" r="52"></circle>
+              <circle class="g-fg" id="gaugeFg" cx="60" cy="60" r="52"></circle>
+            </svg>
+            <div class="gauge-num"><span id="scoreNum">0</span><small>%</small></div>
+          </div>
+          <div class="score-meta">
+            <h3 id="scoreVerdict">—</h3>
+            <p id="scoreNote"></p>
+          </div>
+        </div>
+        <div class="kw-cols">
+          <div>
+            <h4>✅ Matched keywords (<span id="matchCount">0</span>)</h4>
+            <div class="chips" id="matchedChips"></div>
+          </div>
+          <div>
+            <h4>⚠️ Missing keywords (<span id="missCount">0</span>)</h4>
+            <div class="chips" id="missingChips"></div>
+          </div>
+        </div>
+        <p class="hint">Tip: weave the missing keywords naturally into your résumé where they're true for you, then re-run.</p>
+      </div>
+    </section>
+
+    <!-- =================== ALERTS VIEW =================== -->
+    <section class="view" id="view-alerts" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2>🔔 Apply-now alerts</h2>
+          <p>Jobs that are expiring soon and still need action.</p>
+        </div>
+        <div id="alertList"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== Mobile bottom nav ===== -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="active" data-view="dashboard"><span>📊</span><i>Dashboard</i></button>
+    <button data-view="insights"><span>📈</span><i>Insights</i></button>
+    <button data-view="resume"><span>🎯</span><i>Match</i></button>
+    <button data-view="alerts" class="bell"><span>🔔</span><i>Alerts</i><b class="badge" id="alertBadgeM" hidden>0</b></button>
+  </nav>
+
+  <!-- ===== Add / Edit modal ===== -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modalTitle">Add job</h2>
+        <button class="icon-btn" id="modalClose">✕</button>
+      </div>
+      <form id="jobForm">
+        <input type="hidden" id="jobId" />
+        <div class="form-grid">
+          <div class="field span2">
+            <label>Job role *</label>
+            <input type="text" id="f_role" required placeholder="e.g. Frontend Engineer" />
+          </div>
+          <div class="field">
+            <label>Company *</label>
+            <input type="text" id="f_company" required placeholder="e.g. Acme Inc." />
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select id="f_status">
+              <option value="not-applied">Not applied</option>
+              <option value="applied">Applied</option>
+              <option value="mailed-referral">Mailed for referral</option>
+              <option value="got-referral">Got referral</option>
+            </select>
+          </div>
+          <div class="field span2">
+            <label>Job link</label>
+            <input type="url" id="f_link" placeholder="https://…" />
+          </div>
+          <div class="field">
+            <label>People mailed for referral</label>
+            <input type="number" id="f_mailed" min="0" value="0" />
+          </div>
+          <div class="field">
+            <label>Got referral?</label>
+            <select id="f_gotref">
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Posted date</label>
+            <input type="date" id="f_posted" />
+          </div>
+          <div class="field">
+            <label>Expiry date</label>
+            <input type="date" id="f_expiry" />
+          </div>
+          <div class="field">
+            <label>📅 Interview date</label>
+            <input type="date" id="f_interview" />
+          </div>
+          <div class="field">
+            <label>📨 Follow-up date</label>
+            <input type="date" id="f_followup" />
+          </div>
+          <div class="field span2">
+            <label>Notes</label>
+            <textarea id="f_notes" rows="2" placeholder="Anything to remember…"></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" id="deleteJobBtn" hidden>Delete</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn ghost" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn primary">Save job</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Settings modal ===== -->
+  <div class="modal-overlay" id="settingsOverlay" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2>⚙️ Settings</h2>
+        <button class="icon-btn" id="settingsClose">✕</button>
+      </div>
+
+      <div class="settings-block">
+        <h3>🔔 Daily apply reminder</h3>
+        <p class="muted-p">Get a nudge each day to apply. Works while ApplyFlow is open in a tab.</p>
+        <div class="setting-row">
+          <label class="switch">
+            <input type="checkbox" id="reminderEnabled" />
+            <span class="slider"></span>
+          </label>
+          <span>Enable daily reminder</span>
+          <input type="time" id="reminderTime" class="time-input" value="10:00" />
+        </div>
+        <button class="btn ghost small" id="notifyPermBtn">Enable desktop notifications</button>
+        <span class="perm-state" id="permState"></span>
+      </div>
+
+      <div class="settings-block">
+        <h3>⏰ Expiry warning window</h3>
+        <p class="muted-p">Flag unapplied jobs as urgent when they expire within this many days.</p>
+        <div class="setting-row">
+          <input type="range" id="soonDays" min="1" max="14" value="3" />
+          <span class="range-val"><b id="soonDaysVal">3</b> days</span>
+        </div>
+      </div>
+
+      <div class="settings-block">
+        <h3>💾 Data</h3>
+        <p class="muted-p">Your data lives in this browser. Export regularly to back it up or move devices.</p>
+        <div class="btn-row">
+          <button class="btn ghost small" data-act="export-json">⬇ Export JSON</button>
+          <button class="btn ghost small" data-act="export-csv">⬇ Export CSV</button>
+          <button class="btn ghost small" data-act="import">⬆ Import JSON</button>
+        </div>
+      </div>
+
+      <input type="file" id="importFile" accept=".json" hidden />
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- pdf.js is lazy-loaded on first PDF upload (keeps the app offline-friendly) -->
+  <script src="app.js"></script>
+  <script>
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
+    }
+  </script>
+</body>
+</html>
